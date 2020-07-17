@@ -3415,7 +3415,7 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
 	hw->mac.ops.config_collision_dist(hw);
 
 	/* SPT and KBL Si errata workaround to avoid data corruption */
-	if (hw->mac.type == e1000_pch_spt) {
+	if (hw->mac.type >= e1000_pch_spt) {
 		u32 reg_val;
 
 		reg_val = er32(IOSFPC);
@@ -3427,8 +3427,7 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
 		 * Dropping the number of outstanding requests from
 		 * 3 to 2 in order to avoid a buffer overrun.
 		 */
-		reg_val &= ~E1000_TARC0_CB_MULTIQ_3_REQ;
-		reg_val |= E1000_TARC0_CB_MULTIQ_2_REQ;
+		reg_val |= E1000_TARC0_CB_MULTIQ_3_REQ;
 		ew32(TARC(0), reg_val);
 	}
 }
