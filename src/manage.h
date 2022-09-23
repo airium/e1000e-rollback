@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright(c) 1999 - 2020 Intel Corporation. */
+/* Copyright(c) 1999 - 2018 Intel Corporation. */
 
 #ifndef _E1000E_MANAGE_H_
 #define _E1000E_MANAGE_H_
@@ -43,4 +43,5 @@ enum e1000_mng_mode {
 
 /* Intel(R) Active Management Technology signature */
 #define E1000_IAMT_SIGNATURE		0x544D4149
+
 #endif

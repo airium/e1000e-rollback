@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright(c) 1999 - 2020 Intel Corporation. */
+/* Copyright(c) 1999 - 2018 Intel Corporation. */
 
 #ifndef _E1000E_NVM_H_
 #define _E1000E_NVM_H_

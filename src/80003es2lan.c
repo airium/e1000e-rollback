@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright(c) 1999 - 2020 Intel Corporation. */
+/* Copyright(c) 1999 - 2018 Intel Corporation. */
 
 /* 80003ES2LAN Gigabit Ethernet Controller (Copper)
  * 80003ES2LAN Gigabit Ethernet Controller (Serdes)
@@ -16,8 +16,7 @@ static const u16 e1000_gg82563_cable_length_table[] = {
 };
 
 #define GG82563_CABLE_LENGTH_TABLE_SIZE \
-		(sizeof(e1000_gg82563_cable_length_table) / \
-		 sizeof(e1000_gg82563_cable_length_table[0]))
+		ARRAY_SIZE(e1000_gg82563_cable_length_table)
 
 static s32 e1000_setup_copper_link_80003es2lan(struct e1000_hw *hw);
 static s32 e1000_acquire_swfw_sync_80003es2lan(struct e1000_hw *hw, u16 mask);
@@ -104,7 +103,7 @@ static s32 e1000_init_nvm_params_80003es2lan(struct e1000_hw *hw)
 	/* EEPROM access above 16k is unsupported */
 	if (size > 14)
 		size = 14;
-	nvm->word_size = 1 << size;
+	nvm->word_size = BIT(size);
 
 	return 0;
 }
@@ -681,7 +680,7 @@ static s32 e1000_reset_hw_80003es2lan(struct e1000_hw *hw)
 	ew32(TCTL, E1000_TCTL_PSP);
 	e1e_flush();
 
-	usleep_range(10000, 20000);
+	usleep_range(10000, 11000);
 
 	ctrl = er32(CTRL);
 
@@ -694,18 +693,19 @@ static s32 e1000_reset_hw_80003es2lan(struct e1000_hw *hw)
 	e1000_release_phy_80003es2lan(hw);
 
 	/* Disable IBIST slave mode (far-end loopback) */
-	ret_val = e1000_read_kmrn_reg_80003es2lan(hw,
-						  E1000_KMRNCTRLSTA_INBAND_PARAM,
-						  &kum_reg_data);
+	ret_val =
+	    e1000_read_kmrn_reg_80003es2lan(hw, E1000_KMRNCTRLSTA_INBAND_PARAM,
+					    &kum_reg_data);
 	if (!ret_val) {
 		kum_reg_data |= E1000_KMRNCTRLSTA_IBIST_DISABLE;
 		ret_val = e1000_write_kmrn_reg_80003es2lan(hw,
-							   E1000_KMRNCTRLSTA_INBAND_PARAM,
-							   kum_reg_data);
+						 E1000_KMRNCTRLSTA_INBAND_PARAM,
+						 kum_reg_data);
 		if (ret_val)
 			e_dbg("Error disabling far-end loopback\n");
-	} else
+	} else {
 		e_dbg("Error disabling far-end loopback\n");
+	}
 
 	ret_val = e1000e_get_auto_rd_done(hw);
 	if (ret_val)
@@ -765,12 +765,13 @@ static s32 e1000_init_hw_80003es2lan(struct e1000_hw *hw)
 	if (!ret_val) {
 		kum_reg_data |= E1000_KMRNCTRLSTA_IBIST_DISABLE;
 		ret_val = e1000_write_kmrn_reg_80003es2lan(hw,
-							   E1000_KMRNCTRLSTA_INBAND_PARAM,
-							   kum_reg_data);
+						 E1000_KMRNCTRLSTA_INBAND_PARAM,
+						 kum_reg_data);
 		if (ret_val)
 			e_dbg("Error disabling far-end loopback\n");
-	} else
+	} else {
 		e_dbg("Error disabling far-end loopback\n");
+	}
 
 	/* Set the transmit descriptor write-back policy */
 	reg_data = er32(TXDCTL(0));
@@ -839,27 +840,27 @@ static void e1000_initialize_hw_bits_80003es2lan(struct e1000_hw *hw)
 
 	/* Transmit Descriptor Control 0 */
 	reg = er32(TXDCTL(0));
-	reg |= (1 << 22);
+	reg |= BIT(22);
 	ew32(TXDCTL(0), reg);
 
 	/* Transmit Descriptor Control 1 */
 	reg = er32(TXDCTL(1));
-	reg |= (1 << 22);
+	reg |= BIT(22);
 	ew32(TXDCTL(1), reg);
 
 	/* Transmit Arbitration Control 0 */
 	reg = er32(TARC(0));
 	reg &= ~(0xF << 27);	/* 30:27 */
 	if (hw->phy.media_type != e1000_media_type_copper)
-		reg &= ~(1 << 20);
+		reg &= ~BIT(20);
 	ew32(TARC(0), reg);
 
 	/* Transmit Arbitration Control 1 */
 	reg = er32(TARC(1));
 	if (er32(TCTL) & E1000_TCTL_MULR)
-		reg &= ~(1 << 28);
+		reg &= ~BIT(28);
 	else
-		reg |= (1 << 28);
+		reg |= BIT(28);
 	ew32(TARC(1), reg);
 
 	/* Disable IPv6 extension header parsing because some malformed
@@ -1359,7 +1360,6 @@ static const struct e1000_mac_operations es2_mac_ops = {
 	.config_collision_dist	= e1000e_config_collision_dist_generic,
 	.rar_set		= e1000e_rar_set_generic,
 	.rar_get_count		= e1000e_rar_get_count_generic,
-	.validate_mdi_setting	= e1000e_validate_mdi_setting_generic,
 };
 
 static const struct e1000_phy_operations es2_phy_ops = {
@@ -1397,9 +1397,6 @@ const struct e1000_info e1000_es2_info = {
 				  | FLAG_HAS_JUMBO_FRAMES
 				  | FLAG_HAS_WOL
 				  | FLAG_APME_IN_CTRL3
-#ifndef HAVE_NDO_SET_FEATURES
-				  | FLAG_RX_CSUM_ENABLED
-#endif
 				  | FLAG_HAS_CTRLEXT_ON_LOAD
 				  | FLAG_RX_NEEDS_RESTART /* errata */
 				  | FLAG_TARC_SET_BIT_ZERO /* errata */

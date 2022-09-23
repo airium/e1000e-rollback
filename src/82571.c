@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright(c) 1999 - 2020 Intel Corporation. */
+/* Copyright(c) 1999 - 2018 Intel Corporation. */
 
 /* 82571EB Gigabit Ethernet Controller
  * 82571EB Gigabit Ethernet Controller (Copper)
@@ -77,7 +77,6 @@ static s32 e1000_init_phy_params_82571(struct e1000_hw *hw)
 		break;
 	default:
 		return -E1000_ERR_PHY;
-		break;
 	}
 
 	/* This can only be done after all function pointers are setup. */
@@ -155,7 +154,7 @@ static s32 e1000_init_nvm_params_82571(struct e1000_hw *hw)
 			ew32(EECD, eecd);
 			break;
 		}
-		/* Fall Through */
+		fallthrough;
 	default:
 		nvm->type = e1000_nvm_eeprom_spi;
 		size = (u16)((eecd & E1000_EECD_SIZE_EX_MASK) >>
@@ -168,7 +167,7 @@ static s32 e1000_init_nvm_params_82571(struct e1000_hw *hw)
 		/* EEPROM access above 16k is unsupported */
 		if (size > 14)
 			size = 14;
-		nvm->word_size = 1 << size;
+		nvm->word_size = BIT(size);
 		break;
 	}
 
@@ -250,7 +249,7 @@ static s32 e1000_init_mac_params_82571(struct e1000_hw *hw)
 		 * enabled.
 		 */
 		mac->arc_subsystem_valid = !!(er32(FWSM) &
-					       E1000_FWSM_MODE_MASK);
+					      E1000_FWSM_MODE_MASK);
 		break;
 	case e1000_82574:
 	case e1000_82583:
@@ -404,7 +403,6 @@ static s32 e1000_get_phy_id_82571(struct e1000_hw *hw)
 		break;
 	case e1000_82573:
 		return e1000e_get_phy_id(hw);
-		break;
 	case e1000_82574:
 	case e1000_82583:
 		ret_val = e1e_rphy(hw, MII_PHYSID1, &phy_id);
@@ -422,7 +420,6 @@ static s32 e1000_get_phy_id_82571(struct e1000_hw *hw)
 		break;
 	default:
 		return -E1000_ERR_PHY;
-		break;
 	}
 
 	return 0;
@@ -498,9 +495,7 @@ static void e1000_put_hw_semaphore_82571(struct e1000_hw *hw)
 	u32 swsm;
 
 	swsm = er32(SWSM);
-
 	swsm &= ~(E1000_SWSM_SMBI | E1000_SWSM_SWESMBI);
-
 	ew32(SWSM, swsm);
 }
 
@@ -904,31 +899,33 @@ static s32 e1000_set_d0_lplu_state_82571(struct e1000_hw *hw, bool active)
 	} else {
 		data &= ~IGP02E1000_PM_D0_LPLU;
 		ret_val = e1e_wphy(hw, IGP02E1000_PHY_POWER_MGMT, data);
+		if (ret_val)
+			return ret_val;
 		/* LPLU and SmartSpeed are mutually exclusive.  LPLU is used
 		 * during Dx states where the power conservation is most
 		 * important.  During driver activity we should enable
 		 * SmartSpeed, so performance is maintained.
 		 */
 		if (phy->smart_speed == e1000_smart_speed_on) {
-			ret_val = e1e_rphy(hw,
-					   IGP01E1000_PHY_PORT_CONFIG, &data);
+			ret_val = e1e_rphy(hw, IGP01E1000_PHY_PORT_CONFIG,
+					   &data);
 			if (ret_val)
 				return ret_val;
 
 			data |= IGP01E1000_PSCFR_SMART_SPEED;
-			ret_val = e1e_wphy(hw,
-					   IGP01E1000_PHY_PORT_CONFIG, data);
+			ret_val = e1e_wphy(hw, IGP01E1000_PHY_PORT_CONFIG,
+					   data);
 			if (ret_val)
 				return ret_val;
 		} else if (phy->smart_speed == e1000_smart_speed_off) {
-			ret_val = e1e_rphy(hw,
-					   IGP01E1000_PHY_PORT_CONFIG, &data);
+			ret_val = e1e_rphy(hw, IGP01E1000_PHY_PORT_CONFIG,
+					   &data);
 			if (ret_val)
 				return ret_val;
 
 			data &= ~IGP01E1000_PSCFR_SMART_SPEED;
-			ret_val = e1e_wphy(hw,
-					   IGP01E1000_PHY_PORT_CONFIG, data);
+			ret_val = e1e_wphy(hw, IGP01E1000_PHY_PORT_CONFIG,
+					   data);
 			if (ret_val)
 				return ret_val;
 		}
@@ -964,7 +961,7 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
 	ew32(TCTL, tctl);
 	e1e_flush();
 
-	usleep_range(10000, 20000);
+	usleep_range(10000, 11000);
 
 	/* Must acquire the MDIO ownership before MAC reset.
 	 * Ownership defaults to firmware after a reset.
@@ -1112,7 +1109,7 @@ static s32 e1000_init_hw_82571(struct e1000_hw *hw)
 	switch (mac->type) {
 	case e1000_82573:
 		e1000e_enable_tx_pkt_filtering(hw);
-		/* fall through */
+		fallthrough;
 	case e1000_82574:
 	case e1000_82583:
 		reg_data = er32(GCR);
@@ -1150,12 +1147,12 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
 
 	/* Transmit Descriptor Control 0 */
 	reg = er32(TXDCTL(0));
-	reg |= (1 << 22);
+	reg |= BIT(22);
 	ew32(TXDCTL(0), reg);
 
 	/* Transmit Descriptor Control 1 */
 	reg = er32(TXDCTL(1));
-	reg |= (1 << 22);
+	reg |= BIT(22);
 	ew32(TXDCTL(1), reg);
 
 	/* Transmit Arbitration Control 0 */
@@ -1164,11 +1161,11 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
 	switch (hw->mac.type) {
 	case e1000_82571:
 	case e1000_82572:
-		reg |= (1 << 23) | (1 << 24) | (1 << 25) | (1 << 26);
+		reg |= BIT(23) | BIT(24) | BIT(25) | BIT(26);
 		break;
 	case e1000_82574:
 	case e1000_82583:
-		reg |= (1 << 26);
+		reg |= BIT(26);
 		break;
 	default:
 		break;
@@ -1180,12 +1177,12 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
 	switch (hw->mac.type) {
 	case e1000_82571:
 	case e1000_82572:
-		reg &= ~((1 << 29) | (1 << 30));
-		reg |= (1 << 22) | (1 << 24) | (1 << 25) | (1 << 26);
+		reg &= ~(BIT(29) | BIT(30));
+		reg |= BIT(22) | BIT(24) | BIT(25) | BIT(26);
 		if (er32(TCTL) & E1000_TCTL_MULR)
-			reg &= ~(1 << 28);
+			reg &= ~BIT(28);
 		else
-			reg |= (1 << 28);
+			reg |= BIT(28);
 		ew32(TARC(1), reg);
 		break;
 	default:
@@ -1198,7 +1195,7 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
 	case e1000_82574:
 	case e1000_82583:
 		reg = er32(CTRL);
-		reg &= ~(1 << 29);
+		reg &= ~BIT(29);
 		ew32(CTRL, reg);
 		break;
 	default:
@@ -1211,8 +1208,8 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
 	case e1000_82574:
 	case e1000_82583:
 		reg = er32(CTRL_EXT);
-		reg &= ~(1 << 23);
-		reg |= (1 << 22);
+		reg &= ~BIT(23);
+		reg |= BIT(22);
 		ew32(CTRL_EXT, reg);
 		break;
 	default:
@@ -1248,7 +1245,7 @@ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw)
 	case e1000_82574:
 	case e1000_82583:
 		reg = er32(GCR);
-		reg |= (1 << 22);
+		reg |= BIT(22);
 		ew32(GCR, reg);
 
 		/* Workaround for hardware errata.
@@ -1295,8 +1292,8 @@ static void e1000_clear_vfta_82571(struct e1000_hw *hw)
 				       E1000_VFTA_ENTRY_SHIFT) &
 			    E1000_VFTA_ENTRY_MASK;
 			vfta_bit_in_reg =
-			    1 << (hw->mng_cookie.vlan_id &
-				  E1000_VFTA_ENTRY_BIT_SHIFT_MASK);
+			    BIT(hw->mng_cookie.vlan_id &
+				E1000_VFTA_ENTRY_BIT_SHIFT_MASK);
 		}
 		break;
 	default:
@@ -1323,12 +1320,8 @@ static void e1000_clear_vfta_82571(struct e1000_hw *hw)
 static bool e1000_check_mng_mode_82574(struct e1000_hw *hw)
 {
 	u16 data;
-	s32 ret_val;
 
-	ret_val = e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &data);
-	if (ret_val)
-		return false;
-
+	e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &data);
 	return (data & E1000_NVM_INIT_CTRL2_MNGM) != 0;
 }
 
@@ -1446,7 +1439,6 @@ static s32 e1000_setup_copper_link_82571(struct e1000_hw *hw)
 		break;
 	default:
 		return -E1000_ERR_PHY;
-		break;
 	}
 
 	if (ret_val)
@@ -1885,7 +1877,6 @@ static const struct e1000_mac_operations e82571_mac_ops = {
 	.read_mac_addr		= e1000_read_mac_addr_82571,
 	.rar_set		= e1000e_rar_set_generic,
 	.rar_get_count		= e1000e_rar_get_count_generic,
-	.validate_mdi_setting	= e1000e_validate_mdi_setting_generic,
 };
 
 static const struct e1000_phy_operations e82_phy_ops_igp = {
@@ -1959,9 +1950,6 @@ const struct e1000_info e1000_82571_info = {
 				  | FLAG_HAS_JUMBO_FRAMES
 				  | FLAG_HAS_WOL
 				  | FLAG_APME_IN_CTRL3
-#ifndef HAVE_NDO_SET_FEATURES
-				  | FLAG_RX_CSUM_ENABLED
-#endif
 				  | FLAG_HAS_CTRLEXT_ON_LOAD
 				  | FLAG_HAS_SMART_POWER_DOWN
 				  | FLAG_RESET_OVERWRITES_LAA /* errata */
@@ -1983,9 +1971,6 @@ const struct e1000_info e1000_82572_info = {
 				  | FLAG_HAS_JUMBO_FRAMES
 				  | FLAG_HAS_WOL
 				  | FLAG_APME_IN_CTRL3
-#ifndef HAVE_NDO_SET_FEATURES
-				  | FLAG_RX_CSUM_ENABLED
-#endif
 				  | FLAG_HAS_CTRLEXT_ON_LOAD
 				  | FLAG_TARC_SPEED_MODE_BIT, /* errata */
 	.flags2			= FLAG2_DISABLE_ASPM_L1 /* errata 13 */
@@ -2003,9 +1988,6 @@ const struct e1000_info e1000_82573_info = {
 	.flags			= FLAG_HAS_HW_VLAN_FILTER
 				  | FLAG_HAS_WOL
 				  | FLAG_APME_IN_CTRL3
-#ifndef HAVE_NDO_SET_FEATURES
-				  | FLAG_RX_CSUM_ENABLED
-#endif
 				  | FLAG_HAS_SMART_POWER_DOWN
 				  | FLAG_HAS_AMT
 				  | FLAG_HAS_SWSM_ON_LOAD,
@@ -2027,9 +2009,6 @@ const struct e1000_info e1000_82574_info = {
 				  | FLAG_HAS_WOL
 				  | FLAG_HAS_HW_TIMESTAMP
 				  | FLAG_APME_IN_CTRL3
-#ifndef HAVE_NDO_SET_FEATURES
-				  | FLAG_RX_CSUM_ENABLED
-#endif
 				  | FLAG_HAS_SMART_POWER_DOWN
 				  | FLAG_HAS_AMT
 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
@@ -2038,9 +2017,6 @@ const struct e1000_info e1000_82574_info = {
 				  | FLAG2_DISABLE_ASPM_L1
 				  | FLAG2_NO_DISABLE_RX
 				  | FLAG2_DMA_BURST
-				/* Factor out systim sanitization,
-				* added flag.
-				*/
 				  | FLAG2_CHECK_SYSTIM_OVERFLOW,
 	.pba			= 32,
 	.max_hw_frame_size	= DEFAULT_JUMBO,
@@ -2056,9 +2032,6 @@ const struct e1000_info e1000_82583_info = {
 				  | FLAG_HAS_WOL
 				  | FLAG_HAS_HW_TIMESTAMP
 				  | FLAG_APME_IN_CTRL3
-#ifndef HAVE_NDO_SET_FEATURES
-				  | FLAG_RX_CSUM_ENABLED
-#endif
 				  | FLAG_HAS_SMART_POWER_DOWN
 				  | FLAG_HAS_AMT
 				  | FLAG_HAS_JUMBO_FRAMES
@@ -2066,9 +2039,6 @@ const struct e1000_info e1000_82583_info = {
 	.flags2			= FLAG2_DISABLE_ASPM_L0S
 				  | FLAG2_DISABLE_ASPM_L1
 				  | FLAG2_NO_DISABLE_RX
-                                /* Factor out systim sanitization,
-				* added flag.
-				*/
 				  | FLAG2_CHECK_SYSTIM_OVERFLOW,
 	.pba			= 32,
 	.max_hw_frame_size	= DEFAULT_JUMBO,

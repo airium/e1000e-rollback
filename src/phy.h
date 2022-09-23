@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright(c) 1999 - 2020 Intel Corporation. */
+/* Copyright(c) 1999 - 2018 Intel Corporation. */
 
 #ifndef _E1000E_PHY_H_
 #define _E1000E_PHY_H_
@@ -78,6 +78,7 @@ s32 e1000_get_cable_length_82577(struct e1000_hw *hw);
 #define BM_PHY_PAGE_SELECT		22	/* Page Select for BM */
 #define IGP_PAGE_SHIFT			5
 #define PHY_REG_MASK			0x1F
+
 /* BM/HV Specific Registers */
 #define BM_PORT_CTRL_PAGE		769
 #define BM_WUC_PAGE			800
@@ -85,9 +86,9 @@ s32 e1000_get_cable_length_82577(struct e1000_hw *hw);
 #define BM_WUC_DATA_OPCODE		0x12
 #define BM_WUC_ENABLE_PAGE		BM_PORT_CTRL_PAGE
 #define BM_WUC_ENABLE_REG		17
-#define BM_WUC_ENABLE_BIT		(1 << 2)
-#define BM_WUC_HOST_WU_BIT		(1 << 4)
-#define BM_WUC_ME_WU_BIT		(1 << 5)
+#define BM_WUC_ENABLE_BIT		BIT(2)
+#define BM_WUC_HOST_WU_BIT		BIT(4)
+#define BM_WUC_ME_WU_BIT		BIT(5)
 
 #define PHY_UPPER_SHIFT			21
 #define BM_PHY_REG(page, reg) \
@@ -105,8 +106,8 @@ s32 e1000_get_cable_length_82577(struct e1000_hw *hw);
 #define I82578_ADDR_REG			29
 #define I82577_ADDR_REG			16
 #define I82577_CFG_REG			22
-#define I82577_CFG_ASSERT_CRS_ON_TX	(1 << 15)
-#define I82577_CFG_ENABLE_DOWNSHIFT	(3 << 10)	/* auto downshift */
+#define I82577_CFG_ASSERT_CRS_ON_TX	BIT(15)
+#define I82577_CFG_ENABLE_DOWNSHIFT	(3u << 10)	/* auto downshift */
 #define I82577_CTRL_REG			23
 
 /* 82577 specific PHY registers */
@@ -129,12 +130,6 @@ s32 e1000_get_cable_length_82577(struct e1000_hw *hw);
 /* I82577 PHY Diagnostics Status */
 #define I82577_DSTATUS_CABLE_LENGTH		0x03FC
 #define I82577_DSTATUS_CABLE_LENGTH_SHIFT	2
-
-#define E1000_MPHY_DIS_ACCESS		0x80000000	/* disable_access bit */
-#define E1000_MPHY_ENA_ACCESS		0x40000000	/* enable_access bit */
-#define E1000_MPHY_BUSY			0x00010000	/* busy bit */
-#define E1000_MPHY_ADDRESS_FNC_OVERRIDE	0x20000000	/* fnc_override bit */
-#define E1000_MPHY_ADDRESS_MASK		0x0000FFFF	/* address mask */
 
 /* BM PHY Copper Specific Control 1 */
 #define BM_CS_CTRL1			16

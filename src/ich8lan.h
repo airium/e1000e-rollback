@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright(c) 1999 - 2020 Intel Corporation. */
+/* Copyright(c) 1999 - 2018 Intel Corporation. */
 
 #ifndef _E1000E_ICH8LAN_H_
 #define _E1000E_ICH8LAN_H_
@@ -9,6 +9,7 @@
 #define ICH_FLASH_HSFCTL		0x0006
 #define ICH_FLASH_FADDR			0x0008
 #define ICH_FLASH_FDATA0		0x0010
+#define ICH_FLASH_PR0			0x0074
 
 /* Requires up to 10 seconds when MNG might be accessing part. */
 #define ICH_FLASH_READ_COMMAND_TIMEOUT	10000000
@@ -40,12 +41,15 @@
 #define E1000_FWSM_WLOCK_MAC_MASK	0x0380
 #define E1000_FWSM_WLOCK_MAC_SHIFT	7
 #define E1000_FWSM_ULP_CFG_DONE		0x00000400	/* Low power cfg done */
+#define E1000_EXFWSM_DPG_EXIT_DONE	0x00000001
 
 /* Shared Receive Address Registers */
 #define E1000_SHRAL_PCH_LPT(_i)		(0x05408 + ((_i) * 8))
 #define E1000_SHRAH_PCH_LPT(_i)		(0x0540C + ((_i) * 8))
 
 #define E1000_H2ME		0x05B50	/* Host to ME */
+#define E1000_H2ME_START_DPG	0x00000001	/* indicate the ME of DPG */
+#define E1000_H2ME_EXIT_DPG	0x00000002	/* indicate the ME exit DPG */
 #define E1000_H2ME_ULP		0x00000800	/* ULP Indication Bit */
 #define E1000_H2ME_ENFORCE_SETTINGS	0x00001000	/* Enforce Settings */
 
@@ -54,10 +58,10 @@
 				 (ID_LED_OFF1_ON2  <<  4) | \
 				 (ID_LED_DEF1_DEF2))
 
-#define E1000_ICH_NVM_SIG_WORD		0x13
-#define E1000_ICH_NVM_SIG_MASK		0xC000
-#define E1000_ICH_NVM_VALID_SIG_MASK	0xC0
-#define E1000_ICH_NVM_SIG_VALUE		0x80
+#define E1000_ICH_NVM_SIG_WORD		0x13u
+#define E1000_ICH_NVM_SIG_MASK		0xC000u
+#define E1000_ICH_NVM_VALID_SIG_MASK	0xC0u
+#define E1000_ICH_NVM_SIG_VALUE		0x80u
 
 #define E1000_ICH8_LAN_INIT_TIMEOUT	1500
 
@@ -81,15 +85,16 @@
 #define E1000_FEXTNVM7_DISABLE_PB_READ	0x00040000
 #define E1000_FEXTNVM7_SIDE_CLK_UNGATE	0x00000004
 #define E1000_FEXTNVM7_DISABLE_SMB_PERST	0x00000020
-#define E1000_FEXTNVM8_UNBIND_DPG_FROM_MPHY	0x00000400
 #define E1000_FEXTNVM9_IOSFSB_CLKGATE_DIS	0x00000800
 #define E1000_FEXTNVM9_IOSFSB_CLKREQ_DIS	0x00001000
 #define E1000_FEXTNVM11_DISABLE_PB_READ		0x00000200
 #define E1000_FEXTNVM11_DISABLE_MULR_FIX	0x00002000
-#define E1000_FEXTNVM12_DONT_WAK_DPG_CLKREQ	0x00001000
+
 /* bit24: RXDCTL thresholds granularity: 0 - cache lines, 1 - descriptors */
 #define E1000_RXDCTL_THRESH_UNIT_DESC	0x01000000
 
+#define K1_ENTRY_LATENCY	0
+#define K1_MIN_TIME		1
 #define NVM_SIZE_MULTIPLIER 4096	/*multiplier for NVMS field */
 #define E1000_FLASH_BASE_ADDR 0xE000	/*offset of NVM access regs */
 #define E1000_CTRL_EXT_NVMVS 0x3	/*NVM valid sector */
@@ -156,8 +161,6 @@
 
 #define E1000_NVM_K1_CONFIG	0x1B	/* NVM K1 Config Word */
 #define E1000_NVM_K1_ENABLE	0x1	/* NVM Enable K1 bit */
-#define K1_ENTRY_LATENCY	0
-#define K1_MIN_TIME		1
 
 /* SMBus Control Phy Register */
 #define CV_SMB_CTRL		PHY_REG(769, 23)
@@ -232,10 +235,7 @@
 #define I82579_LPI_CTRL_100_ENABLE		0x2000
 #define I82579_LPI_CTRL_1000_ENABLE		0x4000
 #define I82579_LPI_CTRL_ENABLE_MASK		0x6000
-
-/* 82579 DFT Control */
-#define I82579_DFT_CTRL			PHY_REG(769, 20)
-#define I82579_DFT_CTRL_GATE_PHY_RESET	0x0040	/* Gate PHY Reset on MAC Reset */
+#define I82579_LPI_CTRL_FORCE_PLL_LOCK_COUNT	0x80
 
 /* Extended Management Interface (EMI) Registers */
 #define I82579_EMI_ADDR		0x10
@@ -277,8 +277,11 @@
 
 /* Latency Tolerance Reporting */
 #define E1000_LTRV			0x000F8
+#define E1000_LTRV_VALUE_MASK		0x000003FF
 #define E1000_LTRV_SCALE_MAX		5
 #define E1000_LTRV_SCALE_FACTOR		5
+#define E1000_LTRV_SCALE_SHIFT		10
+#define E1000_LTRV_SCALE_MASK		0x00001C00
 #define E1000_LTRV_REQ_SHIFT		15
 #define E1000_LTRV_NOSNOOP_SHIFT	16
 #define E1000_LTRV_SEND			(1 << 30)
@@ -286,9 +289,10 @@
 /* Proprietary Latency Tolerance Reporting PCI Capability */
 #define E1000_PCI_LTR_CAP_LPT		0xA8
 
-#define E1000_PCI_VENDOR_ID_REGISTER	0x00
+/* Don't gate wake DMA clock */
+#define E1000_FFLT_DBG_DONT_GATE_WAKE_DMA_CLK	0x1000
 
-#define E1000_PCI_REVISION_ID_REG	0x08
+void e1000e_write_protect_nvm_ich8lan(struct e1000_hw *hw);
 void e1000e_set_kmrn_lock_loss_workaround_ich8lan(struct e1000_hw *hw,
 						  bool state);
 void e1000e_igp3_phy_powerdown_workaround_ich8lan(struct e1000_hw *hw);
@@ -303,6 +307,3 @@ s32 e1000_write_emi_reg_locked(struct e1000_hw *hw, u16 addr, u16 data);
 s32 e1000_set_eee_pchlan(struct e1000_hw *hw);
 s32 e1000_enable_ulp_lpt_lp(struct e1000_hw *hw, bool to_sx);
 #endif /* _E1000E_ICH8LAN_H_ */
-#ifdef DYNAMIC_LTR_SUPPORT
-void e1000_demote_ltr(struct e1000_hw *hw, bool demote, bool link);
-#endif /* DYNAMIC_LTR_SUPPORT */

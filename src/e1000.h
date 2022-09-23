@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright(c) 1999 - 2020 Intel Corporation. */
+/* Copyright(c) 1999 - 2018 Intel Corporation. */
 
 /* Linux PRO/1000 Ethernet Driver main header file */
 
@@ -8,26 +8,20 @@
 
 #include <linux/bitops.h>
 #include <linux/types.h>
+#include <linux/timer.h>
+#include <linux/workqueue.h>
+#include <linux/io.h>
 #include <linux/netdevice.h>
 #include <linux/pci.h>
+#include <linux/crc32.h>
 #include <linux/if_vlan.h>
-#include "kcompat.h"
-#ifdef HAVE_HW_TIME_STAMP
-#ifdef HAVE_INCLUDE_LINUX_TIMECOUNTER_H
 #include <linux/timecounter.h>
-#else
-#include <linux/clocksource.h>
-#endif /* HAVE_INCLUDE_LINUX_TIMECOUNTER_H */
 #include <linux/net_tstamp.h>
-#endif /* HAVE_HW_TIME_STAMP */
-#ifdef HAVE_PTP_1588_CLOCK
 #include <linux/ptp_clock_kernel.h>
 #include <linux/ptp_classify.h>
-#endif
 #include <linux/mii.h>
-#ifdef ETHTOOL_GEEE
 #include <linux/mdio.h>
-#endif
+#include <linux/pm_qos.h>
 #include "hw.h"
 
 struct e1000_info;
@@ -48,10 +42,6 @@ struct e1000_info;
 #define E1000E_INT_MODE_MSI		1
 #define E1000E_INT_MODE_MSIX		2
 
-#ifndef CONFIG_E1000E_NAPI
-#define E1000_MAX_INTR 10
-
-#endif /* CONFIG_E1000E_NAPI */
 /* Tx/Rx descriptor defines */
 #define E1000_DEFAULT_TXD		256
 #define E1000_MAX_TXD			4096
@@ -85,10 +75,6 @@ struct e1000_info;
  */
 #define E1000_CHECK_RESET_COUNT		25
 
-#define DEFAULT_RDTR			0
-#define DEFAULT_RADV			8
-#define BURST_RDTR			0x20
-#define BURST_RADV			0x20
 #define PCICFG_DESC_RING_STATUS		0xe4
 #define FLUSH_DESC_REQUIRED		0x100
 
@@ -102,7 +88,7 @@ struct e1000_info;
 	 E1000_TXDCTL_COUNT_DESC |                             \
 	 (1u << 16) | /* wthresh must be +1 more than desired */\
 	 (1u << 8)  | /* hthresh */                             \
-	 0x1f)       /* pthresh */
+	 0x1f)        /* pthresh */
 
 #define E1000_RXDCTL_DMA_BURST_ENABLE                          \
 	(0x01000000 | /* set descriptor granularity */         \
@@ -127,7 +113,8 @@ enum e1000_boards {
 	board_pch2lan,
 	board_pch_lpt,
 	board_pch_spt,
-	board_pch_cnp
+	board_pch_cnp,
+	board_pch_tgp
 };
 
 struct e1000_ps_page {
@@ -185,7 +172,6 @@ struct e1000_ring {
 	struct sk_buff *rx_skb_top;
 };
 
-#ifdef SIOCGMIIPHY
 /* PHY register snapshot values */
 struct e1000_phy_regs {
 	u16 bmcr;		/* basic mode control register    */
@@ -197,7 +183,6 @@ struct e1000_phy_regs {
 	u16 stat1000;		/* 1000BASE-T status register     */
 	u16 estatus;		/* extended status register       */
 };
-#endif
 
 /* board specific private data structure */
 struct e1000_adapter {
@@ -210,11 +195,7 @@ struct e1000_adapter {
 
 	const struct e1000_info *ei;
 
-#ifdef HAVE_VLAN_RX_REGISTER
-	struct vlan_group *vlgrp;
-#else
 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
-#endif
 	u32 bd_number;
 	u32 rx_buffer_len;
 	u16 mng_vlan_id;
@@ -235,9 +216,7 @@ struct e1000_adapter {
 	struct e1000_ring *tx_ring ____cacheline_aligned_in_smp;
 	u32 tx_fifo_limit;
 
-#ifdef CONFIG_E1000E_NAPI
 	struct napi_struct napi;
-#endif
 
 	unsigned int uncorr_errors;	/* uncorrectable ECC errors */
 	unsigned int corr_errors;	/* correctable ECC errors */
@@ -270,12 +249,8 @@ struct e1000_adapter {
 	u32 tx_hwtstamp_skipped;
 
 	/* Rx */
-#ifdef CONFIG_E1000E_NAPI
 	bool (*clean_rx)(struct e1000_ring *ring, int *work_done,
 			 int work_to_do) ____cacheline_aligned_in_smp;
-#else
-	bool (*clean_rx)(struct e1000_ring *ring) ____cacheline_aligned_in_smp;
-#endif
 	void (*alloc_rx_buf)(struct e1000_ring *ring, int cleaned_count,
 			     gfp_t gfp);
 	struct e1000_ring *rx_ring;
@@ -291,45 +266,27 @@ struct e1000_adapter {
 	u64 gorc_old;
 	u32 alloc_rx_buff_failed;
 	u32 rx_dma_failed;
-#ifdef HAVE_HW_TIME_STAMP
 	u32 rx_hwtstamp_cleared;
-#endif
-#ifdef DYNAMIC_LTR_SUPPORT
-	u64 c10_mpc_count;	/* frequently updated MPC count */
-	u64 c10_rx_bytes;	/* frequently updated RX bytes count */
-	u32 c10_pba_bytes;	/* current PBA RXA converted to bytes*/
-	bool c10_demote_ltr;	/* is/should LTR be demoted */
-#endif /* DYNAMIC_LTR_SUPPORT */
 
 	unsigned int rx_ps_pages;
 	u16 rx_ps_bsize0;
-#ifndef CONFIG_E1000E_NAPI
-	u64 rx_dropped_backlog;		/* count drops from rx int handler */
-#endif
 	u32 max_frame_size;
 	u32 min_frame_size;
 
 	/* OS defined structs */
 	struct net_device *netdev;
 	struct pci_dev *pdev;
-#ifndef HAVE_NETDEV_STATS_IN_NETDEV
-	struct net_device_stats net_stats;
-#endif
 
 	/* structs defined in e1000_hw.h */
 	struct e1000_hw hw;
 
-#ifdef HAVE_NDO_GET_STATS64
 	spinlock_t stats64_lock;	/* protects statistics counters */
-#endif
 	struct e1000_hw_stats stats;
 	struct e1000_phy_info phy_info;
 	struct e1000_phy_stats phy_stats;
 
-#ifdef SIOCGMIIPHY
 	/* Snapshot of PHY registers */
 	struct e1000_phy_regs phy_regs;
-#endif
 
 	struct e1000_ring test_tx_ring;
 	struct e1000_ring test_rx_ring;
@@ -348,28 +305,17 @@ struct e1000_adapter {
 
 	bool fc_autoneg;
 
-#ifndef HAVE_ETHTOOL_SET_PHYS_ID
-	unsigned long led_status;
-
-#endif
 	unsigned int flags;
 	unsigned int flags2;
 	struct work_struct downshift_task;
 	struct work_struct update_phy_task;
-#ifndef HAVE_ETHTOOL_SET_PHYS_ID
-	struct work_struct led_blink_task;
-#endif
 	struct work_struct print_hang_task;
-	u32 *config_space;
 
-	int node; /* store the node to allocate memory on */
 	int phy_hang_count;
 
 	u16 tx_ring_count;
 	u16 rx_ring_count;
-	u8 revision_id;
 
-#ifdef HAVE_HW_TIME_STAMP
 	struct hwtstamp_config hwtstamp_config;
 	struct delayed_work systim_overflow_work;
 	struct sk_buff *tx_hwtstamp_skb;
@@ -378,18 +324,11 @@ struct e1000_adapter {
 	spinlock_t systim_lock;	/* protects SYSTIML/H regsters */
 	struct cyclecounter cc;
 	struct timecounter tc;
-#endif
-#ifdef HAVE_PTP_1588_CLOCK
 	struct ptp_clock *ptp_clock;
 	struct ptp_clock_info ptp_clock_info;
-#endif
-#ifdef HAVE_PM_QOS_REQUEST_LIST_NEW
 	struct pm_qos_request pm_qos_req;
-
-#elif defined(HAVE_PM_QOS_REQUEST_LIST)
-	struct pm_qos_request_list pm_qos_req;
-#endif
 	s32 ptp_delta;
+
 	u16 eee_advert;
 };
 
@@ -405,10 +344,7 @@ struct e1000_info {
 	const struct e1000_nvm_operations *nvm_ops;
 };
 
-#ifdef HAVE_HW_TIME_STAMP
-#ifdef HAVE_PTP_1588_CLOCK
 s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca);
-#endif
 
 /* The system time is maintained by a 64-bit counter comprised of the 32-bit
  * SYSTIMH and SYSTIML registers.  How the counter increments (and therefore
@@ -451,7 +387,6 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca);
 #define E1000_SYSTIM_OVERFLOW_PERIOD	(HZ * 60 * 60 * 4)
 #define E1000_MAX_82574_SYSTIM_REREADS	50
 #define E1000_82574_SYSTIM_EPSILON	(1ULL << 35ULL)
-#endif /* HAVE_HW_TIME_STAMP */
 
 /* hardware capability, feature, and workaround flags */
 #define FLAG_HAS_AMT                      BIT(0)
@@ -462,7 +397,7 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca);
 #define FLAG_HAS_CTRLEXT_ON_LOAD          BIT(5)
 #define FLAG_HAS_SWSM_ON_LOAD             BIT(6)
 #define FLAG_HAS_JUMBO_FRAMES             BIT(7)
-/* reserved BIT(8) */
+#define FLAG_READ_ONLY_NVM                BIT(8)
 #define FLAG_IS_ICH                       BIT(9)
 #define FLAG_HAS_MSIX                     BIT(10)
 #define FLAG_HAS_SMART_POWER_DOWN         BIT(11)
@@ -482,11 +417,7 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca);
 #define FLAG_LSC_GIG_SPEED_DROP           BIT(25)
 #define FLAG_SMART_POWER_DOWN             BIT(26)
 #define FLAG_MSI_ENABLED                  BIT(27)
-#ifndef HAVE_NDO_SET_FEATURES
-#define FLAG_RX_CSUM_ENABLED              BIT(28)
-#else
 /* reserved BIT(28) */
-#endif
 #define FLAG_TSO_FORCE                    BIT(29)
 #define FLAG_RESTART_NOW                  BIT(30)
 #define FLAG_MSI_TEST_FAILED              BIT(31)
@@ -506,6 +437,7 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca);
 #define FLAG2_DFLT_CRC_STRIPPING          BIT(12)
 #define FLAG2_CHECK_RX_HWTSTAMP           BIT(13)
 #define FLAG2_CHECK_SYSTIM_OVERFLOW       BIT(14)
+#define FLAG2_ENABLE_S0IX_FLOWS           BIT(15)
 
 #define E1000_RX_DESC_PS(R, i)	    \
 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
@@ -516,7 +448,6 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca);
 #define E1000_CONTEXT_DESC(R, i)	E1000_GET_DESC(R, i, e1000_context_desc)
 
 enum e1000_state_t {
-	__E1000_OBFF_DISABLED,
 	__E1000_TESTING,
 	__E1000_RESETTING,
 	__E1000_ACCESS_SHARED_RESOURCE,
@@ -531,16 +462,9 @@ enum latency_range {
 };
 
 extern char e1000e_driver_name[];
-extern const char e1000e_driver_version[];
 
 void e1000e_check_options(struct e1000_adapter *adapter);
 void e1000e_set_ethtool_ops(struct net_device *netdev);
-#ifndef HAVE_ETHTOOL_SET_PHYS_ID
-extern void e1000e_led_blink_task(struct work_struct *work);
-#endif
-#ifdef ETHTOOL_OPS_COMPAT
-extern int ethtool_ioctl(struct ifreq *ifr);
-#endif
 
 int e1000e_open(struct net_device *netdev);
 int e1000e_close(struct net_device *netdev);
@@ -553,17 +477,8 @@ int e1000e_setup_rx_resources(struct e1000_ring *ring);
 int e1000e_setup_tx_resources(struct e1000_ring *ring);
 void e1000e_free_rx_resources(struct e1000_ring *ring);
 void e1000e_free_tx_resources(struct e1000_ring *ring);
-#ifdef HAVE_NDO_GET_STATS64
-#ifdef HAVE_VOID_NDO_GET_STATS64
 void e1000e_get_stats64(struct net_device *netdev,
 			struct rtnl_link_stats64 *stats);
-#else
-struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
-					     struct rtnl_link_stats64 *stats);
-#endif /* HAVE_VOID_NDO_GET_STATS64 */
-#else /* HAVE_NDO_GET_STATS64 */
-extern void e1000e_update_stats(struct e1000_adapter *adapter);
-#endif /* HAVE_NDO_GET_STATS64 */
 void e1000e_set_interrupt_capability(struct e1000_adapter *adapter);
 void e1000e_reset_interrupt_capability(struct e1000_adapter *adapter);
 void e1000e_get_hw_control(struct e1000_adapter *adapter);
@@ -585,15 +500,14 @@ extern const struct e1000_info e1000_pch2_info;
 extern const struct e1000_info e1000_pch_lpt_info;
 extern const struct e1000_info e1000_pch_spt_info;
 extern const struct e1000_info e1000_pch_cnp_info;
+extern const struct e1000_info e1000_pch_tgp_info;
 extern const struct e1000_info e1000_es2_info;
 
-#ifdef HAVE_PTP_1588_CLOCK
 void e1000e_ptp_init(struct e1000_adapter *adapter);
 void e1000e_ptp_remove(struct e1000_adapter *adapter);
-#else
-#define e1000e_ptp_init(adapter) do {} while (0)
-#define e1000e_ptp_remove(adapter) do {} while (0)
-#endif
+
+u64 e1000e_read_systim(struct e1000_adapter *adapter,
+		       struct ptp_system_timestamp *sts);
 
 static inline s32 e1000_phy_hw_reset(struct e1000_hw *hw)
 {
@@ -664,7 +578,6 @@ static inline u32 __er32(struct e1000_hw *hw, unsigned long reg)
 
 #define er32(reg)	__er32(hw, E1000_##reg)
 
-s32 __ew32_prepare(struct e1000_hw *hw);
 void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val);
 
 #define ew32(reg, val)	__ew32(hw, E1000_##reg, (val))

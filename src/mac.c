@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright(c) 1999 - 2020 Intel Corporation. */
+/* Copyright(c) 1999 - 2018 Intel Corporation. */
 
 #include "e1000.h"
 
@@ -18,7 +18,7 @@ s32 e1000e_get_bus_info_pcie(struct e1000_hw *hw)
 	struct e1000_adapter *adapter = hw->adapter;
 	u16 pcie_link_status, cap_offset;
 
-	cap_offset = pci_find_capability(adapter->pdev, PCI_CAP_ID_EXP);
+	cap_offset = adapter->pdev->pcie_cap;
 	if (!cap_offset) {
 		bus->width = e1000_bus_width_unknown;
 	} else {
@@ -328,7 +328,7 @@ void e1000e_update_mc_addr_list_generic(struct e1000_hw *hw,
 		hash_reg = (hash_value >> 5) & (hw->mac.mta_reg_count - 1);
 		hash_bit = hash_value & 0x1F;
 
-		hw->mac.mta_shadow[hash_reg] |= (1 << hash_bit);
+		hw->mac.mta_shadow[hash_reg] |= BIT(hash_bit);
 		mc_addr_list += (ETH_ALEN);
 	}
 
@@ -406,19 +406,15 @@ s32 e1000e_check_for_copper_link(struct e1000_hw *hw)
 	 */
 	if (!mac->get_link_status)
 		return 0;
+	mac->get_link_status = false;
 
 	/* First we want to see if the MII Status Register reports
 	 * link.  If so, then we want to get the current speed/duplex
 	 * of the PHY.
 	 */
 	ret_val = e1000e_phy_has_link_generic(hw, 1, 0, &link);
-	if (ret_val)
-		return ret_val;
-
-	if (!link)
-		return 0;	/* No link detected */
-
-	mac->get_link_status = false;
+	if (ret_val || !link)
+		goto out;
 
 	/* Check if there was DownShift, must be checked
 	 * immediately after link-up
@@ -446,6 +442,10 @@ s32 e1000e_check_for_copper_link(struct e1000_hw *hw)
 	if (ret_val)
 		e_dbg("Error configuring flow control\n");
 
+	return ret_val;
+
+out:
+	mac->get_link_status = true;
 	return ret_val;
 }
 
@@ -769,7 +769,6 @@ static s32 e1000_commit_fc_settings_generic(struct e1000_hw *hw)
 	default:
 		e_dbg("Flow control param set incorrectly\n");
 		return -E1000_ERR_CONFIG;
-		break;
 	}
 
 	ew32(TXCW, txcw);
@@ -798,7 +797,7 @@ static s32 e1000_poll_fiber_serdes_link_generic(struct e1000_hw *hw)
 	 * milliseconds even if the other end is doing it in SW).
 	 */
 	for (i = 0; i < FIBER_LINK_UP_LIMIT; i++) {
-		usleep_range(10000, 20000);
+		usleep_range(10000, 11000);
 		status = er32(STATUS);
 		if (status & E1000_STATUS_LU)
 			break;
@@ -1364,7 +1363,7 @@ s32 e1000e_get_hw_semaphore(struct e1000_hw *hw)
 		if (!(swsm & E1000_SWSM_SMBI))
 			break;
 
-		usleep_range(50, 100);
+		udelay(100);
 		i++;
 	}
 
@@ -1382,7 +1381,7 @@ s32 e1000e_get_hw_semaphore(struct e1000_hw *hw)
 		if (er32(SWSM) & E1000_SWSM_SWESMBI)
 			break;
 
-		usleep_range(50, 100);
+		udelay(100);
 	}
 
 	if (i == timeout) {
@@ -1406,9 +1405,7 @@ void e1000e_put_hw_semaphore(struct e1000_hw *hw)
 	u32 swsm;
 
 	swsm = er32(SWSM);
-
 	swsm &= ~(E1000_SWSM_SMBI | E1000_SWSM_SWESMBI);
-
 	ew32(SWSM, swsm);
 }
 
@@ -1782,35 +1779,4 @@ void e1000e_update_adaptive(struct e1000_hw *hw)
 			ew32(AIT, 0);
 		}
 	}
-}
-
-/**
- *  e1000e_validate_mdi_setting_generic - Verify MDI/MDIx settings
- *  @hw: pointer to the HW structure
- *
- *  Verify that when not using auto-negotiation that MDI/MDIx is correctly
- *  set, which is forced to MDI mode only.
- **/
-s32 e1000e_validate_mdi_setting_generic(struct e1000_hw *hw)
-{
-	if (!hw->mac.autoneg && (hw->phy.mdix == 0 || hw->phy.mdix == 3)) {
-		e_dbg("Invalid MDI setting detected\n");
-		hw->phy.mdix = 1;
-		return -E1000_ERR_CONFIG;
-	}
-
-	return 0;
-}
-
-/**
- *  e1000e_validate_mdi_setting_crossover_generic - Verify MDI/MDIx settings
- *  @hw: pointer to the HW structure
- *
- *  Validate the MDI/MDIx setting, allowing for auto-crossover during forced
- *  operation.
- **/
-s32 e1000e_validate_mdi_setting_crossover_generic(struct e1000_hw
-						  __always_unused *hw)
-{
-	return 0;
 }
