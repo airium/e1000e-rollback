@@ -1,8 +1,10 @@
 # e1000e driver for I219-LM with patch reverted
 
-This repo contains e1000e driver for [Linux 5.19](https://github.com/torvalds/linux/releases/tag/v5.19) with [the negative patch](https://github.com/torvalds/linux/commit/b10effb92e272051dd1ec0d7be56bf9ca85ab927) reverted, restoring Intel I219-LM to its full 1Gbps uplink for TCP. The DKMS part is based on <https://github.com/KozakaiAya/e1000e-rollback> and <https://github.com/koljah-de/e1000e-dkms-debian>. Tested working on Ubuntu 22.04 with HWE Edge 5.19 kernel as of Jan 2023.
+This repo contains e1000e driver for [Linux 5.19](https://github.com/torvalds/linux/releases/tag/v5.19) with [the negative patch](https://github.com/torvalds/linux/commit/b10effb92e272051dd1ec0d7be56bf9ca85ab927) reverted, restoring Intel I217/8/9-V/LM to its full 1Gbps uplink for TCP. The DKMS part is based on <https://github.com/KozakaiAya/e1000e-rollback> and <https://github.com/koljah-de/e1000e-dkms-debian>. Tested working on Ubuntu 22.04 with HWE Edge 5.19 kernel as of Jan 2023.
 
-**The patch reversion is only required and works for Intel Skylake and Kaby Lake platforms.** The abovementioned issue does not apply to other Intel platforms.
+The patch reversion is only required and works for Intel **Skylake & Kaby Lake** platforms. Other Intel platforms have no such issue.
+
+For the full list of affected Intel NIC, check [here](e1000e/pci.updates).
 
 ---
 
