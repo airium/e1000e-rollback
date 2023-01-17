@@ -1,6 +1,6 @@
 Name: e1000e
 Summary: Intel(R) Gigabit Ethernet Connection
-Version: 3.8.4
+Version: 3.8.7
 Release: 1
 Source: %{name}-%{version}.tar.gz
 Vendor: Intel Corporation
@@ -68,7 +68,7 @@ echo "original pci.ids saved in /usr/local/share/%{name}";
 if [ "%{pcitable}" != "/dev/null" ]; then
 	echo "original pcitable saved in /usr/local/share/%{name}";
 fi
-for k in $(sed 's/\/lib\/modules\/\([0-9a-zA-Z_\.\-]*\).*/\1/' $FL) ; 
+for k in $(sed 's/\/lib\/modules\/\([0-9a-zA-Z_\.\-]*\).*/\1/' $FL) ;
 do
 	d_drivers=/lib/modules/$k
 	d_usr=/usr/local/share/%{name}/$k
@@ -85,7 +85,7 @@ done
 
 # Add driver link
 for f in $(sed 's/\.new$//' $FL) ; do
-	ln -f $f.new $f 
+	ln -f $f.new $f
 done
 
 # Check if kernel version rpm was built on IS the same as running kernel
@@ -271,7 +271,7 @@ do
 			exec 1>&6
 			while [[ $ids_in != $SUB ||
 				 $ids_subven < $subven ||
-				 ( $ids_subven == $subven && 
+				 ( $ids_subven == $subven &&
 				   $ids_subdev < $subdev ) ]]
 			do
 				if [[ $ids_in == $VEN ||

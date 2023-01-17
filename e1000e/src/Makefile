@@ -26,6 +26,8 @@ define e1000e-y
 endef
 e1000e-y := $(strip ${e1000e-y})
 
+else	# ifneq($(KERNELRELEASE),)
+# normal makefile
 
 DRIVER := e1000e
 
