@@ -22,19 +22,10 @@ define e1000e-y
 	80003es2lan.o
 	82571.o
 	param.o
+	ptp.o
 endef
 e1000e-y := $(strip ${e1000e-y})
 
-#ifdef BUILD_PTP_SUPPORT
-e1000e-$(CONFIG_PTP_1588_CLOCK:m=y) += ptp.o
-#endif
-
-#ifndef REMOVE_COMPAT
-
-e1000e-y += kcompat.o
-
-else	# ifneq($(KERNELRELEASE),)
-# normal makefile
 
 DRIVER := e1000e
 
