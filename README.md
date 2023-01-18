@@ -1,4 +1,4 @@
-# e1000e driver for I219-LM with patch reverted
+# e1000e driver for Intel I219 series with patch reverted
 
 This repo contains e1000e driver for [Linux 5.19](https://github.com/torvalds/linux/releases/tag/v5.19) with [the negative patch](https://github.com/torvalds/linux/commit/b10effb92e272051dd1ec0d7be56bf9ca85ab927) reverted, restoring Intel I217/8/9-V/LM to its full 1Gbps uplink for TCP. The DKMS part is based on <https://github.com/KozakaiAya/e1000e-rollback> and <https://github.com/koljah-de/e1000e-dkms-debian>. Tested working on Ubuntu 22.04 with HWE Edge 5.19 kernel as of Jan 2023.
 
